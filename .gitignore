@@ -1,0 +1,14 @@
+# Ignore Python & Virtual Environments
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Ignore SQLite (if any local tests use it)
+src/database.db
+*.sqlite3
+
+# Ignore IDE files
+.vscode/
+.idea/
