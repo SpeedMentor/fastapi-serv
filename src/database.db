@@ -1,0 +1,9 @@
+import psycopg2
+
+conn = psycopg2.connect(
+    dbname="yourdbname",
+    user="youruser",
+    password="yourpassword",
+    host="yourdbhost",
+    port="yourdbport"
+)
