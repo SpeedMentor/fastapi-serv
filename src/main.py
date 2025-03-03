@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from uuid import uuid4
 import logging
 import psycopg2
+from psycopg2 import pool
 import json
 import os
 from time import time
@@ -22,28 +23,46 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
 
-# PostgreSQL Connection
-conn = psycopg2.connect(
-    dbname="fastapi_db",
-    user="fastapi_user",
-    password="securepassword",
-    host="postgres-service",
-    port="5432"
-)
-cursor = conn.cursor()
+# PostgreSQL Connection Pooling
+try:
+    db_pool = psycopg2.pool.SimpleConnectionPool(
+        minconn=1,
+        maxconn=10,
+        dbname="fastapi_db",
+        user="fastapi_user",
+        password="securepassword",
+        host="postgres-service",
+        port="5432"
+    )
+    if db_pool:
+        logger.info("Connection pool created successfully")
+except (Exception, psycopg2.DatabaseError) as error:
+    logger.error(f"Error while connecting to PostgreSQL: {error}")
 
 # Create table if not exists
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS requests (
-    id UUID PRIMARY KEY,
-    location TEXT,
-    status TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    response_time FLOAT
-)
-""")
-conn.commit()
+def create_table():
+    conn = db_pool.getconn()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS requests (
+                id UUID PRIMARY KEY,
+                location TEXT,
+                status TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                response_time FLOAT
+            )
+            """)
+            conn.commit()
+            cursor.close()
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error(f"Error creating table: {error}")
+        finally:
+            db_pool.putconn(conn)
+
+create_table()
 
 class LocationData(BaseModel):
     city: str
@@ -101,29 +120,59 @@ async def websocket_endpoint(websocket: WebSocket):
 def submit_location(data: LocationData):
     start_time = time()
     request_id = str(uuid4())
-    cursor.execute("INSERT INTO requests (id, location, status) VALUES (%s, %s, %s)",
-                   (request_id, f"{data.city} ({data.latitude}, {data.longitude})", "received"))
-    conn.commit()
-    duration = time() - start_time
-    cursor.execute("UPDATE requests SET response_time = %s WHERE id = %s", (duration, request_id))
-    conn.commit()
-    logger.info(f"Location data received: {data.city} at {data.latitude}, {data.longitude} (ID: {request_id}), Response time: {duration:.4f} sec")
-    return {"request_id": request_id, "status": "received", "response_time": f"{duration:.4f} sec"}
+    conn = db_pool.getconn()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO requests (id, location, status) VALUES (%s, %s, %s)",
+                           (request_id, f"{data.city} ({data.latitude}, {data.longitude})", "received"))
+            conn.commit()
+            duration = time() - start_time
+            cursor.execute("UPDATE requests SET response_time = %s WHERE id = %s", (duration, request_id))
+            conn.commit()
+            logger.info(f"Location data received: {data.city} at {data.latitude}, {data.longitude} (ID: {request_id}), Response time: {duration:.4f} sec")
+            return {"request_id": request_id, "status": "received", "response_time": f"{duration:.4f} sec"}
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error(f"Error in submit_location: {error}")
+        finally:
+            cursor.close()
+            db_pool.putconn(conn)
+    raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/service/request-{request_id}", dependencies=[Depends(verify_api_key)])
 def get_request_status(request_id: str):
-    cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (request_id,))
-    result = cursor.fetchone()
-    if result:
-        return {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
-    raise HTTPException(status_code=404, detail="Request not found")
+    conn = db_pool.getconn()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (request_id,))
+            result = cursor.fetchone()
+            if result:
+                return {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
+            raise HTTPException(status_code=404, detail="Request not found")
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error(f"Error in get_request_status: {error}")
+        finally:
+            cursor.close()
+            db_pool.putconn(conn)
+    raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/service/devops/track-{track_id}", dependencies=[Depends(verify_api_key)])
 def track_devops_request(track_id: str):
-    cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (track_id,))
-    result = cursor.fetchone()
-    if result:
-        log_entry = {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
-        logger.info(f"DevOps tracking request: {json.dumps(log_entry)}")
-        return log_entry
-    raise HTTPException(status_code=404, detail="Request not found")
+    conn = db_pool.getconn()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (track_id,))
+            result = cursor.fetchone()
+            if result:
+                log_entry = {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
+                logger.info(f"DevOps tracking request: {json.dumps(log_entry)}")
+                return log_entry
+            raise HTTPException(status_code=404, detail="Request not found")
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error(f"Error in track_devops_request: {error}")
+        finally:
+            cursor.close()
+            db_pool.putconn(conn)
+    raise HTTPException(status_code=500, detail="Internal Server Error")
