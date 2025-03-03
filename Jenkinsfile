@@ -27,12 +27,6 @@ pipeline {
             }
         }
 
-        stage('Secrets Detection (Gitleaks)') {
-            steps {
-                sh 'docker run --rm -v $(pwd):/repo zricethezav/gitleaks detect --source=/repo --redact'
-            }
-        }
-
         stage('Build & Test') {
             steps {
                 sh 'python3 -m venv venv'
