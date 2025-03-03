@@ -178,8 +178,8 @@ pipeline {
                     // Apply other Kubernetes manifests
                     sh """
                         kubectl apply -f k8s/secrets.yaml
-                        kubectl apply -f k8s/k8s-service.yaml
-                        kubectl apply -f k8s/postgres-deployment.yaml
+                        kubectl apply -f k8s/service.yaml
+                        kubectl apply -f k8s/postgres.yaml
                     """
                     
                     // Wait for deployment to be ready
