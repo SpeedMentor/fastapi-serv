@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "your-dockerhub-username/fastapi-service:${BUILD_NUMBER}"
+        DOCKER_IMAGE = "your-dockerhub-username/fastapi-service"
         KUBECONFIG = credentials('huawei-cce-kubeconfig')
     }
 
@@ -13,52 +13,64 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Code Quality Analysis (SonarQube)') {
             steps {
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate && pip install -r requirements.txt'
+                withSonarQubeEnv('SonarQube') {
+                    sh 'sonar-scanner -Dsonar.projectKey=fastapi-service -Dsonar.sources=. -Dsonar.host.url=http://sonarqube:9000'
+                }
             }
         }
 
-        stage('Run Unit Tests') {
+        stage('Dependency Security Check (Snyk)') {
             steps {
-                sh '. venv/bin/activate && pytest'
+                snykSecurity task: 'test'
+            }
+        }
+
+        stage('Secrets Detection (Gitleaks)') {
+            steps {
+                sh 'docker run --rm -v $(pwd):/repo zricethezav/gitleaks detect --source=/repo --redact'
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                sh 'python3 -m venv venv'
+                sh '. venv/bin/activate && pip install -r requirements.txt'
+                sh '. venv/bin/activate && pytest --junitxml=test-results.xml'
+            }
+            post {
+                always {
+                    junit 'test-results.xml'
+                }
+            }
+        }
+
+        stage('Container Security Check (Trivy)') {
+            steps {
+                sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_IMAGE:${BUILD_NUMBER} || true'
             }
         }
 
         stage('Build & Push Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
-                withDockerRegistry([credentialsId: 'docker-hub-credentials', url: '']) {
-                    sh 'docker push $DOCKER_IMAGE'
+                script {
+                    def imageTag = "${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    sh "docker build -t ${imageTag} ."
+                    withDockerRegistry([credentialsId: 'docker-hub-credentials', url: '']) {
+                        sh "docker push ${imageTag}"
+                    }
                 }
-            }
-        }
-
-        stage('Deploy PostgreSQL & FastAPI to CCE') {
-            steps {
-                sh '''
-                kubectl --kubeconfig=$KUBECONFIG apply -f k8s/postgres-deployment.yaml
-                kubectl --kubeconfig=$KUBECONFIG apply -f k8s/k8s-deployment.yaml
-                kubectl --kubeconfig=$KUBECONFIG apply -f k8s/k8s-service.yaml
-                '''
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                sh 'kubectl --kubeconfig=$KUBECONFIG get pods -n default'
-                sh 'kubectl --kubeconfig=$KUBECONFIG get svc -n default'
             }
         }
     }
 
     post {
         success {
-            echo '✅ Deployment to CCE successful!'
+            echo "✅ Build successful! Docker Image Version: ${BUILD_NUMBER}"
         }
         failure {
-            echo '❌ Deployment failed!'
+            echo "❌ Build failed! Check logs for details."
         }
     }
 }
