@@ -1,73 +1,41 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request, Security, Depends
-from fastapi.security.api_key import APIKeyHeader
-from pydantic import BaseModel
-from uuid import uuid4
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import logging
-import psycopg2
-from psycopg2 import pool
-import json
-import os
 from time import time
-
-app = FastAPI()
+from .controllers.location_controller import router as location_router
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# API Key Security
-API_KEY = os.getenv("API_KEY", "secure-api-key")  # Use environment variable for security
-api_key_header = APIKeyHeader(name="X-API-Key")
+app = FastAPI()
 
-def verify_api_key(api_key: str = Security(api_key_header)):
-    if api_key != API_KEY:
-        raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
+# Rate limiting configuration
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# PostgreSQL Connection Pooling
-try:
-    db_pool = psycopg2.pool.SimpleConnectionPool(
-        minconn=1,
-        maxconn=10,
-        dbname="fastapi_db",
-        user="fastapi_user",
-        password="securepassword",
-        host="postgres-service",
-        port="5432"
-    )
-    if db_pool:
-        logger.info("Connection pool created successfully")
-except (Exception, psycopg2.DatabaseError) as error:
-    logger.error(f"Error while connecting to PostgreSQL: {error}")
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Create table if not exists
-def create_table():
-    conn = db_pool.getconn()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS requests (
-                id UUID PRIMARY KEY,
-                location TEXT,
-                status TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                response_time FLOAT
-            )
-            """)
-            conn.commit()
-            cursor.close()
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error(f"Error creating table: {error}")
-        finally:
-            db_pool.putconn(conn)
+# Trusted hosts middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]  # Production'da spesifik host'lar belirtilmeli
+)
 
-create_table()
-
-class LocationData(BaseModel):
-    city: str
-    latitude: float
-    longitude: float
+# Include routers
+app.include_router(location_router, prefix="/service", tags=["location"])
 
 # Middleware to log all requests with response time
 @app.middleware("http")
@@ -83,27 +51,39 @@ async def log_requests(request: Request, call_next):
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        self.connection_count = 0
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info("WebSocket connection established")
+        self.connection_count += 1
+        logger.info(f"WebSocket connection established. Total connections: {self.connection_count}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
-        logger.info("WebSocket connection closed")
+        self.connection_count -= 1
+        logger.info(f"WebSocket connection closed. Total connections: {self.connection_count}")
 
     async def broadcast(self, message: str):
         logger.info(f"Broadcasting message: {message}")
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                logger.error(f"Error broadcasting message: {e}")
+                await self.disconnect(connection)
 
 manager = ConnectionManager()
 
-@app.get("/service", dependencies=[Depends(verify_api_key)])
-def service_status():
+@app.get("/service")
+@limiter.limit("100/minute")
+async def service_status(request: Request):
     logger.info("Service status endpoint accessed")
-    return {"message": "Service is running"}
+    return {
+        "message": "Service is running",
+        "websocket_connections": manager.connection_count,
+        "uptime": time() - app.start_time if hasattr(app, 'start_time') else 0
+    }
 
 @app.websocket("/service/stream")
 async def websocket_endpoint(websocket: WebSocket):
@@ -115,64 +95,12 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.broadcast(f"Received data: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        manager.disconnect(websocket)
 
-@app.post("/service/submit", dependencies=[Depends(verify_api_key)])
-def submit_location(data: LocationData):
-    start_time = time()
-    request_id = str(uuid4())
-    conn = db_pool.getconn()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO requests (id, location, status) VALUES (%s, %s, %s)",
-                           (request_id, f"{data.city} ({data.latitude}, {data.longitude})", "received"))
-            conn.commit()
-            duration = time() - start_time
-            cursor.execute("UPDATE requests SET response_time = %s WHERE id = %s", (duration, request_id))
-            conn.commit()
-            logger.info(f"Location data received: {data.city} at {data.latitude}, {data.longitude} (ID: {request_id}), Response time: {duration:.4f} sec")
-            return {"request_id": request_id, "status": "received", "response_time": f"{duration:.4f} sec"}
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error(f"Error in submit_location: {error}")
-        finally:
-            cursor.close()
-            db_pool.putconn(conn)
-    raise HTTPException(status_code=500, detail="Internal Server Error")
-
-@app.get("/service/request-{request_id}", dependencies=[Depends(verify_api_key)])
-def get_request_status(request_id: str):
-    conn = db_pool.getconn()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (request_id,))
-            result = cursor.fetchone()
-            if result:
-                return {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
-            raise HTTPException(status_code=404, detail="Request not found")
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error(f"Error in get_request_status: {error}")
-        finally:
-            cursor.close()
-            db_pool.putconn(conn)
-    raise HTTPException(status_code=500, detail="Internal Server Error")
-
-@app.get("/service/devops/track-{track_id}", dependencies=[Depends(verify_api_key)])
-def track_devops_request(track_id: str):
-    conn = db_pool.getconn()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, location, status, created_at, updated_at, response_time FROM requests WHERE id = %s", (track_id,))
-            result = cursor.fetchone()
-            if result:
-                log_entry = {"request_id": result[0], "location": result[1], "status": result[2], "created_at": result[3], "updated_at": result[4], "response_time": result[5]}
-                logger.info(f"DevOps tracking request: {json.dumps(log_entry)}")
-                return log_entry
-            raise HTTPException(status_code=404, detail="Request not found")
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error(f"Error in track_devops_request: {error}")
-        finally:
-            cursor.close()
-            db_pool.putconn(conn)
-    raise HTTPException(status_code=500, detail="Internal Server Error")
+# Add startup event to initialize app start time
+@app.on_event("startup")
+async def startup_event():
+    app.start_time = time()
+    logger.info("Application startup completed")

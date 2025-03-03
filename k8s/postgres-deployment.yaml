@@ -41,16 +41,25 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:15
+          image: postgres:13
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRES_DB
-              value: "fastapi_db"
+              valueFrom:
+                secretKeyRef:
+                  name: fastapi-secrets
+                  key: postgres-db
             - name: POSTGRES_USER
-              value: "fastapi_user"
+              valueFrom:
+                secretKeyRef:
+                  name: fastapi-secrets
+                  key: postgres-user
             - name: POSTGRES_PASSWORD
-              value: "securepassword"
+              valueFrom:
+                secretKeyRef:
+                  name: fastapi-secrets
+                  key: postgres-password
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres-storage

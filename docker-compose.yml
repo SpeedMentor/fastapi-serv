@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=secure-api-key
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=fastapi_db
+      - POSTGRES_USER=fastapi_user
+      - POSTGRES_PASSWORD=securepassword
+    depends_on:
+      - postgres
+    volumes:
+      - ./src:/app/src
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=fastapi_db
+      - POSTGRES_USER=fastapi_user
+      - POSTGRES_PASSWORD=securepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge 
