@@ -1,14 +1,19 @@
-# Ignore Python & Virtual Environments
-venv/
+# Ignore Python Cache & Compiled Files
 __pycache__/
 *.pyc
 *.pyo
+
+# Ignore Virtual Environments
+venv/
+env/
+
+# Ignore Logs
+logs/
 *.log
 
-# Ignore SQLite (if any local tests use it)
-src/database.db
-*.sqlite3
-
-# Ignore IDE files
+# Ignore IDE Configurations
 .vscode/
 .idea/
+
+# Ignore Docker Build Files
+*.tar
