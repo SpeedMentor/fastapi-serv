@@ -40,18 +40,18 @@ pipeline {
         stage('Security Scan - Trivy') {
             steps {
                 script {
-                    // Trivy kurulumu
+                    // Install Trivy
                     sh """
                         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
                     """
                     
-                    // Trivy ile güvenlik taraması
+                    // Security scan with Trivy
                     sh """
                         trivy fs --severity HIGH,CRITICAL .
                         trivy fs --severity HIGH,CRITICAL --format json --output trivy-report.json .
                     """
                     
-                    // Sonuçları arşivle
+                    // Archive results
                     archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
                 }
             }
@@ -60,12 +60,12 @@ pipeline {
         stage('Security Scan - Snyk') {
             steps {
                 script {
-                    // Snyk CLI kurulumu
+                    // Install Snyk CLI
                     sh """
                         npm install -g snyk
                     """
                     
-                    // Snyk ile güvenlik taraması
+                    // Security scan with Snyk
                     sh """
                         snyk auth ${SNYK_TOKEN}
                         snyk test --severity-threshold=high
@@ -78,14 +78,14 @@ pipeline {
         stage('Code Quality - SonarQube') {
             steps {
                 script {
-                    // SonarQube Scanner kurulumu
+                    // Install SonarQube Scanner
                     sh """
                         wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
                         unzip sonar-scanner-cli-4.8.0.2856-linux.zip
                         mv sonar-scanner-4.8.0.2856-linux /opt/sonar-scanner
                     """
                     
-                    // SonarQube analizi
+                    // SonarQube analysis
                     sh """
                         /opt/sonar-scanner/bin/sonar-scanner \
                             -Dsonar.projectKey=fastapi-service \
