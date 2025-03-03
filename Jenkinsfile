@@ -180,6 +180,8 @@ pipeline {
                         kubectl apply -f k8s/secrets.yaml
                         kubectl apply -f k8s/service.yaml
                         kubectl apply -f k8s/postgres.yaml
+                        kubectl apply -f k8s/monitoring.yaml
+                        kubectl apply -f k8s/logging.yaml
                     """
                     
                     // Wait for deployment to be ready
