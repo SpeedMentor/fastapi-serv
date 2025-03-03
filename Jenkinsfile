@@ -143,7 +143,7 @@ pipeline {
                         docker tag ${DOCKER_IMAGE}:${IMAGE_VERSION} ${DOCKER_IMAGE}:latest
                     """
                     
-                    // Trivy ile Docker image taraması
+                    // Security scan of Docker image with Trivy
                     sh """
                         trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE}:${IMAGE_VERSION}
                         trivy image --severity HIGH,CRITICAL --format json --output trivy-image-report.json ${DOCKER_IMAGE}:${IMAGE_VERSION}
