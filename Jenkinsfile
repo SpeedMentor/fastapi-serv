@@ -2,8 +2,14 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "your-dockerhub-username/fastapi-service"
-        KUBECONFIG = credentials('huawei-cce-kubeconfig')
+        DOCKER_IMAGE = "swr.${HUAWEI_REGION}.myhuaweicloud.com/cce/fastapi-service"
+        HUAWEI_ACCESS_KEY = credentials('HUAWEI_ACCESS_KEY')
+        HUAWEI_SECRET_KEY = credentials('HUAWEI_SECRET_KEY')
+        HUAWEI_REGION = 'tr-west-1'
+        KUBE_CONFIG = credentials('KUBE_CONFIG')
+        KUBE_CLUSTER_NAME = 'cce-test'
+        DOCKER_USER = credentials('DOCKER_USER')
+        DOCKER_PW = credentials('DOCKER_PW')
     }
 
     stages {
