@@ -41,7 +41,7 @@ pipeline {
                 script {
                     // Install Trivy
                     sh """
-                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
+                        sudo curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
                     """
                     
                     // Security scan with Trivy
