@@ -20,7 +20,7 @@ def mock_db():
 
 @pytest.fixture
 def mock_service():
-    with patch('src.services.location_service.LocationService') as mock:
+    with patch('src.controllers.location_controller.LocationService') as mock:
         mock_instance = mock.return_value
         mock_instance.submit_location.return_value = {
             "request_id": "test-id-123",
@@ -41,13 +41,6 @@ def test_end_to_end_flow(mock_db, mock_service):
         "longitude": 28.9784
     }
     
-    # Mock service response
-    mock_service.return_value.submit_location.return_value = {
-        "request_id": "test-id-123",
-        "status": "received",
-        "response_time": 1.5
-    }
-    
     # Submit location
     response = client.post(
         "/service/submit",
@@ -55,6 +48,8 @@ def test_end_to_end_flow(mock_db, mock_service):
         headers={"X-API-Key": "secure-api-key"}
     )
     assert response.status_code == 200
+    assert "request_id" in response.json()
+    assert response.json()["status"] == "received"
     request_id = response.json()["request_id"]
     
     # Get status
@@ -63,7 +58,8 @@ def test_end_to_end_flow(mock_db, mock_service):
         headers={"X-API-Key": "secure-api-key"}
     )
     assert status_response.status_code == 200
-    assert status_response.json()["request_id"] == request_id
+    assert status_response.json()["request_id"] == "test-id-123"
+    assert status_response.json()["status"] == "completed"
 
 @pytest.mark.asyncio
 async def test_websocket_stream():
