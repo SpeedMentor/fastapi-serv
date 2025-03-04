@@ -165,23 +165,25 @@ pipeline {
                         export KUBECONFIG=kubeconfig.yaml
                     """
                     
-                    // Update deployment with new image version
+                    // Update image version in deployment.yaml
                     sh """
-                        kubectl set image deployment/fastapi-deployment fastapi-container=${DOCKER_IMAGE}:${IMAGE_VERSION}
+                        sed -i 's|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_VERSION}|' k8s/deployment.yaml
                     """
                     
-                    // Apply other Kubernetes manifests
+                    // Apply Kubernetes manifests
                     sh """
+                        # Apply secrets first
                         kubectl apply -f k8s/secrets.yaml
+                        
+                        # Apply deployment and wait for rollout
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl rollout status deployment/fastapi-deployment
+                        
+                        # Apply other resources
                         kubectl apply -f k8s/service.yaml
                         kubectl apply -f k8s/postgres.yaml
                         kubectl apply -f k8s/monitoring.yaml
                         kubectl apply -f k8s/logging.yaml
-                    """
-                    
-                    // Wait for deployment to be ready
-                    sh """
-                        kubectl rollout status deployment/fastapi-deployment
                     """
                 }
             }
