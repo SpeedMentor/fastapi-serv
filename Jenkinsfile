@@ -77,12 +77,12 @@ pipeline {
                     sh """
                         wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
                         unzip sonar-scanner-cli-4.8.0.2856-linux.zip
-                        sudo mv sonar-scanner-4.8.0.2856-linux /opt/sonar-scanner
+                        mv sonar-scanner-4.8.0.2856-linux ${WORKSPACE}/sonar-scanner
                     """
                     
                     // SonarQube analysis
                     sh """
-                        /opt/sonar-scanner/bin/sonar-scanner \\
+                        ${WORKSPACE}/sonar-scanner/bin/sonar-scanner \\
                             -Dsonar.projectKey=fastapi-service \\
                             -Dsonar.sources=. \\
                             -Dsonar.host.url=http://sonarqube:9000 \\
