@@ -33,6 +33,7 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      serviceAccountName: elasticsearch-sa
       imagePullSecrets:
         - name: default-secret
       containers:
@@ -121,6 +122,7 @@ spec:
       labels:
         app: kibana
     spec:
+      serviceAccountName: kibana-sa
       imagePullSecrets:
         - name: default-secret
       initContainers:
@@ -250,4 +252,56 @@ data:
           host: ${NODE_NAME}
           matchers:
           - logs_path:
-              logs_path: "/var/log/containers/" 
+              logs_path: "/var/log/containers/"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kibana-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-reader
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kibana-secret-reader
+subjects:
+- kind: ServiceAccount
+  name: kibana-sa
+roleRef:
+  kind: Role
+  name: secret-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elasticsearch-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-creator
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: elasticsearch-secret-creator
+subjects:
+- kind: ServiceAccount
+  name: elasticsearch-sa
+roleRef:
+  kind: Role
+  name: secret-creator
+  apiGroup: rbac.authorization.k8s.io 
