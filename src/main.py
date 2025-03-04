@@ -154,7 +154,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.get("/service")
-@limiter.limit("100/minute")
+@limiter.limit("5/minute")
 async def service_status(request: Request):
     logger.info("Service status endpoint accessed")
     return {

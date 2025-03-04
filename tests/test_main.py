@@ -36,7 +36,12 @@ def mock_service():
 def test_service_status():
     response = client.get("/service")
     assert response.status_code == 200
-    assert response.json() == {"message": "Service is running"}
+    response_data = response.json()
+    assert response_data["message"] == "Service is running"
+    assert "websocket_connections" in response_data
+    assert isinstance(response_data["websocket_connections"], int)
+    assert "uptime" in response_data
+    assert isinstance(response_data["uptime"], (int, float))
 
 @pytest.mark.database
 def test_submit_location():
