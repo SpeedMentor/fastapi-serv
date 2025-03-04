@@ -51,6 +51,19 @@ spec:
               key: elastic-password
         - name: ES_JAVA_OPTS
           value: "-Xms512m -Xmx512m"
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - bash
+              - -c
+              - |
+                #!/bin/bash
+                until curl -s -k "http://localhost:9200" > /dev/null; do sleep 10; done
+                TOKEN=$(curl -s -k -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" "http://localhost:9200/_security/service/elastic/kibana/credential/token/kibana-token" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+                if [ ! -z "$TOKEN" ]; then
+                  kubectl create secret generic kibana-token-secret --from-literal=token=$TOKEN -o yaml --dry-run=client | kubectl apply -f -
+                fi
         volumeMounts:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data
@@ -106,13 +119,11 @@ spec:
         env:
         - name: ELASTICSEARCH_HOSTS
           value: "http://elasticsearch-service:9200"
-        - name: ELASTICSEARCH_USERNAME
-          value: "elastic"
-        - name: ELASTICSEARCH_PASSWORD
+        - name: ELASTICSEARCH_SERVICEACCOUNT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: elasticsearch-secrets
-              key: elastic-password
+              name: kibana-token-secret
+              key: token
 ---
 apiVersion: v1
 kind: Service
