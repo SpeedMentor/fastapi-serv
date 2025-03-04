@@ -35,6 +35,8 @@ spec:
             secretKeyRef:
               name: fastapi-secrets
               key: postgres-password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
@@ -45,6 +47,18 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+      initContainers:
+      - name: init-chmod-data
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          mkdir -p /var/lib/postgresql/data/pgdata
+          chown -R 999:999 /var/lib/postgresql/data
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
   - metadata:
       name: postgres-data
