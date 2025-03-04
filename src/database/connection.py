@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import pool
 import logging
 import os
+from .test_config import TEST_DB_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +18,24 @@ class DatabaseConnection:
 
     def __init__(self):
         if self._pool is None:
+            # Skip actual database connection in test mode
+            if os.getenv('TESTING') == 'true':
+                logger.info("Test mode: Skipping database connection")
+                return
+
             try:
+                config = {
+                    'dbname': "fastapi_db",
+                    'user': "fastapi_user",
+                    'password': "securepassword",
+                    'host': "postgres-service",
+                    'port': "5432"
+                }
+
                 self._pool = psycopg2.pool.SimpleConnectionPool(
                     minconn=1,
                     maxconn=10,
-                    dbname="fastapi_db",
-                    user="fastapi_user",
-                    password="securepassword",
-                    host="postgres-service",
-                    port="5432"
+                    **config
                 )
                 if self._pool:
                     logger.info("Connection pool created successfully")
@@ -35,6 +45,9 @@ class DatabaseConnection:
                 raise
 
     def _create_table(self):
+        if os.getenv('TESTING') == 'true':
+            return
+            
         conn = self._pool.getconn()
         if conn:
             try:
@@ -57,8 +70,12 @@ class DatabaseConnection:
                 self._pool.putconn(conn)
 
     def get_connection(self):
+        if os.getenv('TESTING') == 'true':
+            return None
         return self._pool.getconn()
 
     def return_connection(self, conn):
+        if os.getenv('TESTING') == 'true':
+            return
         if conn:
             self._pool.putconn(conn) 
