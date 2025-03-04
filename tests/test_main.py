@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from src.main import app
+from src.main import app, limiter
 import pytest
 from unittest.mock import patch, MagicMock
 from src.models.location_model import LocationData, LocationResponse
@@ -7,6 +7,12 @@ from src.services.location_service import LocationService
 from src.repositories.location_repository import LocationRepository
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset rate limiter before each test"""
+    limiter.reset()
+    yield
 
 @pytest.fixture
 def mock_repo():
