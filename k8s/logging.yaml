@@ -57,7 +57,13 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
+      annotations:
+        everest.io/disk-volume-type: GPSSD
+        everest.io/enterprise-project-id: ff463241-f63b-45f1-82d5-f8c57b0ee80f
+        volume.beta.kubernetes.io/storage-provisioner: everest-csi-provisioner
+        volume.kubernetes.io/storage-provisioner: everest-csi-provisioner
     spec:
+      storageClassName: csi-disk
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
