@@ -15,8 +15,8 @@ kind: Secret
 metadata:
   name: elasticsearch-secrets
 type: Opaque
-data:
-  elastic-password: ${ELASTIC_PASSWORD_BASE64}
+stringData:
+  elastic-password: "elastic123secure"
 ---
 apiVersion: apps/v1
 kind: StatefulSet
