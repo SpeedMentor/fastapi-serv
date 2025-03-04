@@ -14,6 +14,8 @@ spec:
       labels:
         app: fastapi-service
     spec:
+      imagePullSecrets:
+        - name: default-secret
       containers:
       - name: fastapi-container
         image: swr.tr-west-1.myhuaweicloud.com/cce/fastapi-service:1.0.0-30
