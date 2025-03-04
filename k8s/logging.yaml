@@ -123,6 +123,17 @@ spec:
     spec:
       imagePullSecrets:
         - name: default-secret
+      initContainers:
+      - name: wait-for-elasticsearch
+        image: bitnami/kubectl
+        command:
+        - sh
+        - -c
+        - |
+          until kubectl get secret kibana-token-secret; do
+            echo "Waiting for Elasticsearch to create Kibana token..."
+            sleep 10
+          done
       containers:
       - name: kibana
         image: docker.io/library/kibana:8.10.1
