@@ -98,7 +98,7 @@ pipeline {
             steps {
                 sh """
                     . venv/bin/activate
-                    pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml -v
+                    PYTHONPATH=${WORKSPACE} pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml -v
                 """
             }
         }
