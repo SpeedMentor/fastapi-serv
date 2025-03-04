@@ -130,10 +130,31 @@ spec:
               - -c
               - |
                 #!/bin/bash
-                until curl -s -k "http://localhost:9200" > /dev/null; do sleep 10; done
-                TOKEN=$(curl -s -k -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" "http://localhost:9200/_security/service/elastic/kibana/credential/token/kibana-token" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+                echo "Waiting for Elasticsearch to start..."
+                until curl -s -k "http://localhost:9200" > /dev/null; do 
+                  echo "Elasticsearch is not ready yet..."
+                  sleep 10
+                done
+                echo "Elasticsearch is ready, creating Kibana token..."
+                
+                # Try to create the token
+                TOKEN_RESPONSE=$(curl -s -k -X POST -u "elastic:${ELASTIC_PASSWORD}" \
+                  -H "Content-Type: application/json" \
+                  "http://localhost:9200/_security/service/elastic/kibana/credential/token/kibana-token")
+                
+                echo "Token creation response: ${TOKEN_RESPONSE}"
+                
+                TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+                
                 if [ ! -z "$TOKEN" ]; then
-                  kubectl create secret generic kibana-token-secret --from-literal=token=$TOKEN -o yaml --dry-run=client | kubectl apply -f -
+                  echo "Token created successfully, creating secret..."
+                  kubectl create secret generic kibana-token-secret \
+                    --from-literal=token=$TOKEN \
+                    -o yaml --dry-run=client | kubectl apply -f -
+                  echo "Secret created successfully"
+                else
+                  echo "Failed to create token. Response was: ${TOKEN_RESPONSE}"
+                  exit 1
                 fi
         volumeMounts:
         - name: elasticsearch-data
