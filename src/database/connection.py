@@ -1,8 +1,5 @@
-import psycopg2
-from psycopg2 import pool
 import logging
 import os
-from .test_config import TEST_DB_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -17,32 +14,36 @@ class DatabaseConnection:
         return cls._instance
 
     def __init__(self):
-        if self._pool is None:
-            # Skip actual database connection in test mode
-            if os.getenv('TESTING') == 'true':
-                logger.info("Test mode: Skipping database connection")
-                return
+        # Don't initialize the pool in __init__ to avoid immediate connection
+        pass
 
-            try:
-                config = {
-                    'dbname': "fastapi_db",
-                    'user': "fastapi_user",
-                    'password': "securepassword",
-                    'host': "postgres-service",
-                    'port': "5432"
-                }
+    def _initialize_pool(self):
+        if self._pool is not None or os.getenv('TESTING') == 'true':
+            return
 
-                self._pool = psycopg2.pool.SimpleConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    **config
-                )
-                if self._pool:
-                    logger.info("Connection pool created successfully")
-                    self._create_table()
-            except (Exception, psycopg2.DatabaseError) as error:
-                logger.error(f"Error while connecting to PostgreSQL: {error}")
-                raise
+        try:
+            import psycopg2
+            from psycopg2 import pool
+
+            config = {
+                'dbname': "fastapi_db",
+                'user': "fastapi_user",
+                'password': "securepassword",
+                'host': "postgres-service",
+                'port': "5432"
+            }
+
+            self._pool = pool.SimpleConnectionPool(
+                minconn=1,
+                maxconn=10,
+                **config
+            )
+            if self._pool:
+                logger.info("Connection pool created successfully")
+                self._create_table()
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error(f"Error while connecting to PostgreSQL: {error}")
+            raise
 
     def _create_table(self):
         if os.getenv('TESTING') == 'true':
@@ -64,7 +65,7 @@ class DatabaseConnection:
                 """)
                 conn.commit()
                 cursor.close()
-            except (Exception, psycopg2.DatabaseError) as error:
+            except Exception as error:
                 logger.error(f"Error creating table: {error}")
             finally:
                 self._pool.putconn(conn)
@@ -72,10 +73,11 @@ class DatabaseConnection:
     def get_connection(self):
         if os.getenv('TESTING') == 'true':
             return None
-        return self._pool.getconn()
+        self._initialize_pool()
+        return self._pool.getconn() if self._pool else None
 
     def return_connection(self, conn):
-        if os.getenv('TESTING') == 'true':
+        if os.getenv('TESTING') == 'true' or not self._pool:
             return
         if conn:
             self._pool.putconn(conn) 
