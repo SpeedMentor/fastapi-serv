@@ -85,7 +85,7 @@ pipeline {
                         ${WORKSPACE}/sonar-scanner/bin/sonar-scanner \\
                             -Dsonar.projectKey=fastapi-service \\
                             -Dsonar.sources=. \\
-                            -Dsonar.host.url=http://sonarqube:9000 \\
+                            -Dsonar.host.url=http://localhost:9000 \\
                             -Dsonar.login=${SONAR_TOKEN} \\
                             -Dsonar.python.coverage.reportPaths=coverage.xml \\
                             -Dsonar.python.version=3.9
