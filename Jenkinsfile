@@ -11,7 +11,6 @@ pipeline {
         DOCKER_USER = credentials('DOCKER_USER')
         DOCKER_PW = credentials('DOCKER_PW')
         SONAR_TOKEN = credentials('SONAR_TOKEN')
-        SNYK_TOKEN = credentials('SNYK_TOKEN')
         MAJOR_VERSION = "1"
         MINOR_VERSION = "0"
         PATCH_VERSION = "0"
@@ -60,17 +59,12 @@ pipeline {
         stage('Security Scan - Snyk') {
             steps {
                 script {
-                    // Install Snyk CLI
-                    sh """
-                        npm install -g snyk
-                    """
-                    
-                    // Security scan with Snyk
-                    sh """
-                        snyk auth ${SNYK_TOKEN}
-                        snyk test --severity-threshold=high
-                        snyk monitor
-                    """
+                    snykSecurity(
+                        snykInstallation: 'snyk@latest',
+                        snykTokenId: 'SNYK_TOKEN',
+                        snykTest: true,
+                        snykMonitor: true
+                    )
                 }
             }
         }
