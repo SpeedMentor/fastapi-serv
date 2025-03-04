@@ -11,11 +11,26 @@ client = TestClient(app)
 @pytest.fixture
 def mock_db():
     with patch('src.repositories.location_repository.LocationRepository') as mock:
+        mock_instance = mock.return_value
+        mock_instance.create_location.return_value = True
+        mock_instance.get_location.return_value = ("test-id", "Test Location", "test")
+        mock_instance.update_response_time.return_value = True
+        mock_instance.delete_location.return_value = True
         yield mock
 
 @pytest.fixture
 def mock_service():
     with patch('src.services.location_service.LocationService') as mock:
+        mock_instance = mock.return_value
+        mock_instance.submit_location.return_value = {
+            "request_id": "test-id-123",
+            "status": "received",
+            "response_time": 1.5
+        }
+        mock_instance.get_request_status.return_value = {
+            "request_id": "test-id-123",
+            "status": "completed"
+        }
         yield mock
 
 def test_end_to_end_flow(mock_db, mock_service):
