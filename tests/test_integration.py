@@ -33,7 +33,7 @@ def mock_service():
         }
         yield mock
 
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_end_to_end_flow(mock_db, mock_service):
     # Test data
     test_data = {
@@ -62,6 +62,7 @@ def test_end_to_end_flow(mock_db, mock_service):
     assert status_response.json()["request_id"] == "test-id-123"
     assert status_response.json()["status"] == "completed"
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_websocket_stream():
     with client.websocket_connect("/service/stream") as websocket:
@@ -70,6 +71,7 @@ async def test_websocket_stream():
             data = websocket.receive_text()
             assert "Received data:" in data
 
+@pytest.mark.unit
 def test_error_handling():
     # Test invalid city
     invalid_data = {
@@ -97,6 +99,7 @@ def test_error_handling():
     )
     assert response.status_code == 422
 
+@pytest.mark.unit
 def test_rate_limiting():
     # Test multiple requests in short time
     for _ in range(5):  # Assuming rate limit is 5 requests per minute
@@ -113,7 +116,7 @@ def test_rate_limiting():
     )
     assert response.status_code == 429  # Too Many Requests
 
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_database_operations(mock_db):
     # Test database operations
     repo = LocationRepository()
@@ -133,7 +136,7 @@ def test_database_operations(mock_db):
     assert repo.delete_location("test-id")
     assert repo.get_location("test-id") is None
 
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_service_layer_operations(mock_service):
     service = LocationService()
     

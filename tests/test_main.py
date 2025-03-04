@@ -32,12 +32,13 @@ def mock_service():
         }
         yield mock
 
+@pytest.mark.unit
 def test_service_status():
     response = client.get("/service")
     assert response.status_code == 200
     assert response.json() == {"message": "Service is running"}
 
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_submit_location():
     payload = {
         "city": "Istanbul",
@@ -49,7 +50,7 @@ def test_submit_location():
     assert "request_id" in response.json()
     assert response.json()["status"] == "received"
 
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_get_request_status():
     # First create a request
     payload = {
@@ -66,6 +67,7 @@ def test_get_request_status():
     assert response.json()["request_id"] == request_id
     assert response.json()["status"] == "received"
 
+@pytest.mark.unit
 def test_invalid_api_key():
     payload = {
         "city": "Istanbul",
@@ -76,14 +78,14 @@ def test_invalid_api_key():
     assert response.status_code == 403
     assert response.json()["detail"] == "Forbidden: Invalid API Key"
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_websocket_connection():
     with client.websocket_connect("/service/stream") as websocket:
         data = websocket.receive_text()
         assert data == "Received data: test message"
 
-# Service Layer Tests
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_location_service():
     service = LocationService()
     data = LocationData(city="Istanbul", latitude=41.0082, longitude=28.9784)
@@ -92,8 +94,7 @@ def test_location_service():
     assert result["status"] == "received"
     assert "response_time" in result
 
-# Repository Layer Tests
-@pytest.mark.skip(reason="Database connection required")
+@pytest.mark.database
 def test_location_repository():
     repo = LocationRepository()
     request_id = "test-id"
@@ -113,7 +114,7 @@ def test_location_repository():
     # Test update_response_time
     assert repo.update_response_time(request_id, 1.5)
 
-# Model Tests
+@pytest.mark.unit
 def test_location_models():
     # Test LocationData model
     data = LocationData(city="Istanbul", latitude=41.0082, longitude=28.9784)
