@@ -22,6 +22,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: kibana-sa
+  namespace: default
 roleRef:
   kind: Role
   name: secret-reader
@@ -31,23 +32,27 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: elasticsearch-sa
+  namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: secret-creator
+  namespace: default
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["create", "update", "patch"]
+  verbs: ["create", "update", "patch", "get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: elasticsearch-secret-creator
+  namespace: default
 subjects:
 - kind: ServiceAccount
   name: elasticsearch-sa
+  namespace: default
 roleRef:
   kind: Role
   name: secret-creator
