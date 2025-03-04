@@ -96,6 +96,17 @@ spec:
       serviceAccountName: elasticsearch-sa
       imagePullSecrets:
         - name: default-secret
+      initContainers:
+      - name: install-kubectl
+        image: bitnami/kubectl
+        command:
+        - sh
+        - -c
+        - |
+          cp /opt/bitnami/kubectl/bin/kubectl /shared/kubectl && chmod +x /shared/kubectl
+        volumeMounts:
+        - name: shared-bins
+          mountPath: /shared
       containers:
       - name: elasticsearch
         image: docker.io/library/elasticsearch:8.10.1
@@ -115,6 +126,8 @@ spec:
               key: elastic-password
         - name: ES_JAVA_OPTS
           value: "-Xms512m -Xmx512m"
+        - name: PATH
+          value: "/usr/share/elasticsearch/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/shared"
         resources:
           requests:
             memory: "1Gi"
@@ -130,14 +143,27 @@ spec:
               - -c
               - |
                 #!/bin/bash
-                until curl -s -k "http://localhost:9200" > /dev/null; do sleep 10; done
+                until curl -s -k "http://localhost:9200" > /dev/null; do 
+                  echo "Waiting for Elasticsearch to start..."
+                  sleep 10
+                done
+                echo "Creating Kibana token..."
                 TOKEN=$(curl -s -k -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" "http://localhost:9200/_security/service/elastic/kibana/credential/token/kibana-token" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
                 if [ ! -z "$TOKEN" ]; then
-                  kubectl create secret generic kibana-token-secret --from-literal=token=$TOKEN -o yaml --dry-run=client | kubectl apply -f -
+                  echo "Token created, creating secret..."
+                  /shared/kubectl create secret generic kibana-token-secret --from-literal=token=$TOKEN -o yaml --dry-run=client | /shared/kubectl apply -f -
+                else
+                  echo "Failed to create token"
+                  exit 1
                 fi
         volumeMounts:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data
+        - name: shared-bins
+          mountPath: /shared
+      volumes:
+      - name: shared-bins
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
