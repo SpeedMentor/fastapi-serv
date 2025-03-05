@@ -299,8 +299,7 @@ data:
         - /var/lib/docker/containers/*/*.log
     output.elasticsearch:
       hosts: ["elasticsearch-service:9200"]
-      username: "elastic"
-      password: "${ELASTIC_PASSWORD}"
+      service_token: "${ELASTIC_PASSWORD}"
       ssl.verification_mode: "none"
     setup.kibana:
       host: "kibana-service:5601"
