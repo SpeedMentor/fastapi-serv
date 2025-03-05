@@ -204,10 +204,26 @@ spec:
             secretKeyRef:
               name: kibana-token-secret
               key: token
-        - name: XPACK_SECURITY_ENABLED
-          value: "true"
         - name: ELASTICSEARCH_SSL_VERIFICATIONMODE
           value: "none"
+        - name: XPACK_SECURITY_ENABLED
+          value: "true"
+        - name: XPACK_SECURITY_AUTHC_TYPE
+          value: "token"
+        - name: XPACK_SECURITY_AUTHC_TOKEN_ENABLED
+          value: "true"
+        - name: ELASTICSEARCH_SERVICEACCOUNTTOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kibana-token-secret
+              key: token
+        - name: ELASTICSEARCH_USERNAME
+          value: "kibana_system"
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: elasticsearch-secrets
+              key: elastic-password
         - name: LOGGING_ROOT_LEVEL
           value: "debug"
         - name: LOGGING_VERBOSE
