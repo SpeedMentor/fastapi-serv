@@ -208,6 +208,30 @@ spec:
           value: "true"
         - name: ELASTICSEARCH_SSL_VERIFICATIONMODE
           value: "none"
+        - name: LOGGING_ROOT_LEVEL
+          value: "debug"
+        - name: LOGGING_VERBOSE
+          value: "true"
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=512"
+        - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
+          value: "xpack.encryptedSavedObjects.encryptionKey"
+        - name: XPACK_REPORTING_ENCRYPTIONKEY
+          value: "xpack.reporting.encryptionKey"
+        - name: XPACK_SECURITY_ENCRYPTIONKEY
+          value: "xpack.security.encryptionKey"
+        - name: XPACK_FLEET_AGENTS_ELASTICSEARCH_HOST
+          value: "http://elasticsearch-service:9200"
+        - name: XPACK_FLEET_AGENTS_KIBANA_HOST
+          value: "http://kibana-service:5601"
+        readinessProbe:
+          httpGet:
+            path: /api/status
+            port: 5601
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
 ---
 apiVersion: v1
 kind: Service
