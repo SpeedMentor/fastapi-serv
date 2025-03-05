@@ -215,11 +215,11 @@ spec:
         - name: NODE_OPTIONS
           value: "--max-old-space-size=512"
         - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
-          value: "xpack.encryptedSavedObjects.encryptionKey"
+          value: "xpack.encryptedSavedObjects.encryptionKey123456"
         - name: XPACK_REPORTING_ENCRYPTIONKEY
-          value: "xpack.reporting.encryptionKey"
+          value: "xpack.reporting.encryptionKey123456789012345"
         - name: XPACK_SECURITY_ENCRYPTIONKEY
-          value: "xpack.security.encryptionKey"
+          value: "xpack.security.encryptionKey12345678901234"
         - name: XPACK_FLEET_AGENTS_ELASTICSEARCH_HOST
           value: "http://elasticsearch-service:9200"
         - name: XPACK_FLEET_AGENTS_KIBANA_HOST
