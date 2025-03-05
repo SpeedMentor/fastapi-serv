@@ -63,11 +63,23 @@ spec:
       - name: increase-vm-max-map
         image: busybox
         command:
-        - sysctl
-        - -w
-        - vm.max_map_count=262144
+        - sh
+        - -c
+        - |
+          if [ -f /proc/sys/vm/max_map_count ]; then
+            echo "Current max_map_count: $(cat /proc/sys/vm/max_map_count)"
+            echo "Setting max_map_count to 262144..."
+            echo 262144 > /proc/sys/vm/max_map_count
+            echo "New max_map_count: $(cat /proc/sys/vm/max_map_count)"
+          else
+            echo "Error: /proc/sys/vm/max_map_count not found"
+            exit 1
+          fi
         securityContext:
           privileged: true
+        volumeMounts:
+        - name: host-proc
+          mountPath: /proc
       - name: install-kubectl
         image: bitnami/kubectl
         command:
@@ -140,6 +152,9 @@ spec:
       volumes:
       - name: shared-bins
         emptyDir: {}
+      - name: host-proc
+        hostPath:
+          path: /proc
   volumeClaimTemplates:
   - metadata:
       name: elasticsearch-data
