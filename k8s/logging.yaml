@@ -46,8 +46,17 @@ spec:
         - sh
         - -c
         - |
-          mkdir -p /usr/share/elasticsearch/data && \
+          echo "Current user: $(id)"
+          echo "Checking directory..."
+          ls -la /usr/share/elasticsearch/
+          echo "Creating data directory..."
+          mkdir -p /usr/share/elasticsearch/data
+          echo "Setting permissions..."
           chown -R 1000:1000 /usr/share/elasticsearch/data
+          echo "Checking final permissions..."
+          ls -la /usr/share/elasticsearch/data
+        securityContext:
+          runAsUser: 0
         volumeMounts:
         - name: elasticsearch-data
           mountPath: /usr/share/elasticsearch/data
