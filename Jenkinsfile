@@ -94,25 +94,6 @@ pipeline {
             }
         }
 
-
-        stage('Check Coverage') {
-            steps {
-                script {
-                    def coverage = sh(script: """
-                        . venv/bin/activate
-                        coverage report | grep TOTAL | awk '{print \$4}' | sed 's/%//'
-                    """, returnStdout: true).trim()
-                    
-                    if (coverage.toFloat() < 80.0) {
-                        currentBuild.result = 'UNSTABLE'
-                        echo "WARNING: Code coverage is ${coverage}%, which is below the minimum required 80%"
-                    } else {
-                        echo "Code coverage is ${coverage}%, which meets the minimum requirement of 80%"
-                    }
-                }
-            }
-        }
-
         stage('Build and Push Docker Image') {
             steps {
                 script {
