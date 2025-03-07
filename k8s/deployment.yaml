@@ -27,25 +27,25 @@ spec:
             secretKeyRef:
               name: fastapi-secrets
               key: api-key
-        - name: POSTGRES_HOST
-          value: "postgres-service"
-        - name: POSTGRES_PORT
-          value: "5432"
-        - name: POSTGRES_DB
+        - name: postgres-db
           valueFrom:
             secretKeyRef:
               name: fastapi-secrets
               key: postgres-db
-        - name: POSTGRES_USER
+        - name: postgres-user
           valueFrom:
             secretKeyRef:
               name: fastapi-secrets
               key: postgres-user
-        - name: POSTGRES_PASSWORD
+        - name: postgres-password
           valueFrom:
             secretKeyRef:
               name: fastapi-secrets
               key: postgres-password
+        - name: postgres-service
+          value: "postgres-service"
+        - name: postgres-port
+          value: "5432"
         resources:
           requests:
             memory: "256Mi"
