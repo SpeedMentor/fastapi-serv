@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      serviceAccountName: kibana-sa
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:8.5.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch-master:9200"
+            - name: ELASTICSEARCH_SERVICE_ACCOUNT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: kibana-service-token
+                  key: service_token
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=1800"
+          ports:
+            - containerPort: 5601
+              name: http
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /app/kibana
+              port: 5601
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+            successThreshold: 3
+            failureThreshold: 15
+          livenessProbe:
+            httpGet:
+              path: /app/kibana
+              port: 5601
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+            successThreshold: 1
+            failureThreshold: 15
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: kibana
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 5601
+      targetPort: 5601
+      protocol: TCP
+      name: http
+  selector:
+    app: kibana
