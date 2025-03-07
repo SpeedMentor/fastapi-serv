@@ -77,17 +77,17 @@ pipeline {
                     sh """
                         wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
                         unzip sonar-scanner-cli-4.8.0.2856-linux.zip
-                        mv sonar-scanner-4.8.0.2856-linux /opt/sonar-scanner
+                        mv sonar-scanner-4.8.0.2856-linux ${WORKSPACE}/sonar-scanner
                     """
                     
                     // SonarQube analysis
                     sh """
-                        /opt/sonar-scanner/bin/sonar-scanner \
-                            -Dsonar.projectKey=fastapi-service \
-                            -Dsonar.sources=. \
-                            -Dsonar.host.url=http://sonarqube:9000 \
-                            -Dsonar.login=${SONAR_TOKEN} \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                        ${WORKSPACE}/sonar-scanner/bin/sonar-scanner \\
+                            -Dsonar.projectKey=fastapi-service \\
+                            -Dsonar.sources=. \\
+                            -Dsonar.host.url=http://localhost:9000 \\
+                            -Dsonar.login=${SONAR_TOKEN} \\
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \\
                             -Dsonar.python.version=3.9
                     """
                 }
@@ -98,7 +98,7 @@ pipeline {
             steps {
                 sh """
                     . venv/bin/activate
-                    pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml -v
+                    PYTHONPATH=${WORKSPACE} pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml -v
                 """
             }
         }
@@ -165,21 +165,23 @@ pipeline {
                         export KUBECONFIG=kubeconfig.yaml
                     """
                     
-                    // Update deployment with new image version
+                    // Update image version in deployment.yaml
                     sh """
-                        kubectl set image deployment/fastapi-deployment fastapi-container=${DOCKER_IMAGE}:${IMAGE_VERSION}
+                        sed -i 's|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_VERSION}|' k8s/deployment.yaml
                     """
                     
-                    // Apply other Kubernetes manifests
+                    // Apply Kubernetes manifests
                     sh """
+                        # Apply secrets first
                         kubectl apply -f k8s/secrets.yaml
+                        
+                        # Apply deployment and wait for rollout
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl rollout status deployment/fastapi-deployment
+                        
+                        # Apply other resources
                         kubectl apply -f k8s/service.yaml
                         kubectl apply -f k8s/postgres.yaml
-                    """
-                    
-                    // Wait for deployment to be ready
-                    sh """
-                        kubectl rollout status deployment/fastapi-deployment
                     """
                 }
             }
