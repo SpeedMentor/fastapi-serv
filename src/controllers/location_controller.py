@@ -4,6 +4,7 @@ import logging
 from ..services.location_service import LocationService
 from ..models.location_model import LocationData, LocationResponse
 import os
+import json
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -22,6 +23,8 @@ class LocationController:
 
     async def submit_location(self, data: LocationData):
         try:
+            # Log the incoming data
+            logger.info(f"Received location data: {data.dict()}")
             return self.service.submit_location(data)
         except Exception as e:
             logger.error(f"Error in submit_location: {str(e)}")
@@ -40,7 +43,13 @@ controller = LocationController()
 # Define routes
 @router.post("/submit", dependencies=[Depends(verify_api_key)])
 async def submit_location(data: LocationData):
-    return await controller.submit_location(data)
+    try:
+        # Log the raw request data
+        logger.info(f"Raw request data: {data.dict()}")
+        return await controller.submit_location(data)
+    except Exception as e:
+        logger.error(f"Validation error: {str(e)}")
+        raise
 
 @router.get("/request-{request_id}", dependencies=[Depends(verify_api_key)])
 async def get_request_status(request_id: str):
