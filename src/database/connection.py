@@ -19,13 +19,25 @@ class DatabaseConnection:
         if self._pool is None:
             try:
                 # Get database configuration from environment variables
-                dbname = os.getenv("POSTGRES_DB", "fastapi_db")
-                user = os.getenv("POSTGRES_USER", "fastapi_user")
-                password = os.getenv("POSTGRES_PASSWORD", "securepassword")
-                host = os.getenv("POSTGRES_HOST", "postgres-service")
-                port = os.getenv("POSTGRES_PORT", "5432")
+                dbname = os.getenv("postgres-db")
+                user = os.getenv("postgres-user")
+                password = os.getenv("postgres-password")
+                host = os.getenv("postgres-service")
+                port = os.getenv("postgres-port")
 
-                logger.info(f"Attempting to connect to database at {host}:{port}")
+                # Log the values (without password for security)
+                logger.info(f"Database configuration: host={host}, port={port}, dbname={dbname}, user={user}")
+
+                # Verify all required values are present
+                if not all([dbname, user, password, host, port]):
+                    missing = [k for k, v in {
+                        "postgres-db": dbname,
+                        "postgres-user": user,
+                        "postgres-password": password,
+                        "postgres-service": host,
+                        "postgres-port": port
+                    }.items() if not v]
+                    raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
                 
                 self._pool = psycopg2.pool.SimpleConnectionPool(
                     minconn=1,
