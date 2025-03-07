@@ -18,14 +18,23 @@ class DatabaseConnection:
     def __init__(self):
         if self._pool is None:
             try:
+                # Get database configuration from environment variables
+                dbname = os.getenv("POSTGRES_DB", "fastapi_db")
+                user = os.getenv("POSTGRES_USER", "fastapi_user")
+                password = os.getenv("POSTGRES_PASSWORD", "securepassword")
+                host = os.getenv("POSTGRES_HOST", "postgres-service")
+                port = os.getenv("POSTGRES_PORT", "5432")
+
+                logger.info(f"Attempting to connect to database at {host}:{port}")
+                
                 self._pool = psycopg2.pool.SimpleConnectionPool(
                     minconn=1,
                     maxconn=10,
-                    dbname="fastapi_db",
-                    user="fastapi_user",
-                    password="securepassword",
-                    host="postgres-service",
-                    port="5432"
+                    dbname=dbname,
+                    user=user,
+                    password=password,
+                    host=host,
+                    port=port
                 )
                 if self._pool:
                     logger.info("Connection pool created successfully")
@@ -45,7 +54,7 @@ class DatabaseConnection:
                     location TEXT,
                     status TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     response_time FLOAT
                 )
                 """)
